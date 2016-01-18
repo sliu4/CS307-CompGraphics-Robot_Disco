@@ -1,0 +1,541 @@
+<!--Authors: 
+	Caroline Hsu and Sheree Liu
+    Date: Dec 2015
+    CS 307
+    project.html
+
+
+    Description: Creates a disco scene with thirteen dancing robots, 
+    a spinning disco ball and 6 plasma screen TVs. Audio plays Abba's
+	Dancing Queen. 
+
+	Special thanks to: stemkoski.github.io for the keyboard object 
+
+	Things you can change in our scene:
+		size of the room;
+		size of the disco ball;
+		videos that play on the TV screens
+		robot parameters-->
+
+
+<html>
+	<head>
+		<title>Caroline and Sheree's Totally Rad Disco</title>
+		<style>
+			canvas {
+	          display: block;
+	          margin: 10px auto;
+	          width: 80%;
+	          height: 80%;
+	      	}
+
+	      	h1,h3,h5 {
+        	  font-family: "Andale Mono",AndaleMono, monospace;
+     		 }
+		</style>
+		<script src="http://cs.wellesley.edu/~cs307/threejs/libs/three.min.js"></script>
+	    <script src="http://cs.wellesley.edu/~cs307/threejs/libs/OrbitControls.js"></script>
+	    <script src="http://cs.wellesley.edu/~cs307/threejs/libs/tw.js"></script>
+	    <script src="http://cs.wellesley.edu/~cs307/threejs/libs/dat.gui.min.js"></script>
+	    <script src="http://cs.wellesley.edu/~sliu4/cs307-graphics-project-final/robotParams.js"></script>
+	    <script src="https://stemkoski.github.io/Three.js/js/THREEx.KeyboardState.js"></script> <!--borrowed code-->
+
+	</head>
+	
+	<body>
+	<h1>Caroline and Sheree's Totally Rad Disco</h1>
+	<h5>Press 'q' to pause</br>Press 'p' to play</br>Press 'r' to rewind</br>Press 's' to stop</br>Press 'g' to spin the disco ball</br>Press 'h' to stop the disco ball</br>Press '1' to make the robots dance</br>Press '0' to make the robots stop dancing</h5>
+	<script>
+	  //=====================================================================================
+	  //set the scene
+	  var scene = new THREE.Scene();
+
+	  //renderer is necessary to make image show up
+	  var renderer = new THREE.WebGLRenderer();
+	  TW.mainInit(renderer,scene);
+
+	  //declare keyboard so you can use it!
+	  var keyboard = new THREEx.KeyboardState();
+
+	  //declare variables necessary to create the room
+	  var roomLength, roomHeight, roomDepth;
+	  roomLength = 150;
+	  roomHeight = 60;
+	  roomDepth = 100;
+
+	  //=====================================================================================
+
+	  //create and add the robots to the scene
+	  var robotParameters = new robotParams();
+
+	  //creating a robot array to access later 
+	  var robotArray = [];
+
+	  //create the robot the rest will be cloned from and place in the scene 
+	  var robot = createRobot(robotParameters);
+	  robot.position.set(-roomLength/17,-roomHeight/2 + 13*robotParameters.legLength/12,roomDepth/3.5);
+
+	  //could not make adding the robots its own function b/c need to access the 
+	  //robots individually 
+	  var numRobots = 13; //can change here how many robots you would lie to add to the scenfe
+	  var yAxis = new THREE.Vector3(0,1,0);
+	  var turn = (2*Math.PI)/numRobots; 
+
+	  var i;
+	  for (i=0;i<numRobots;++i) {
+	  	robot = robot.clone();
+	  	robot.translateX(15);
+	  	robot.rotateOnAxis(yAxis,turn);
+	  		
+	  	scene.add(robot);
+
+	  	//push to an array to access later in the animation 
+	  	robotArray.push(robot);
+	  }
+
+	  //=====================================================================================
+	  //create the box that makes up the room
+	  var roomGeom = new THREE.BoxGeometry(roomLength,roomHeight,roomDepth);
+	  var matArray = [];//array for the materials of the room
+	  var faceColors = [0x000000,0x000000,0x000000,0x000000,0x000000,0x000000];//array for the colors of the room
+	  
+	  //creating the special floor texture
+	  var discoFloorTexture = new THREE.ImageUtils.loadTexture("danceFloor.jpg", {}, function(){});
+	  
+	  //make the walls of the room
+	  for (var i=0; i<6;i++) {
+	    if (i == 3){ //makes the bottom floor material for a dance floor 
+	      matArray.push(new THREE.MeshPhongMaterial({
+	                              map : discoFloorTexture,
+	                              ambient: faceColors[i],
+	                              specular: 0xFFFFFF,
+	                              side: THREE.BackSide,
+	                              shininess:20,
+	                              bumpMap : discoFloorTexture,
+	                              bumpScale : 1
+	                               }));
+	    } else { //creates the material for the rest of the walls 
+	      matArray.push(new THREE.MeshPhongMaterial({
+	                              color:faceColors[i],
+	                              ambient: faceColors[i],
+	                              specular: 0xFFFFFF,
+	                              side: THREE.BackSide,
+	                              shininess:5
+	                              }));
+	    }
+	  }
+
+	  //make the mesh for each of the square faces using matArray and roomGeom
+	  var roomMat = new THREE.MeshFaceMaterial (matArray);
+	  var room = new THREE.Mesh(roomGeom,roomMat);
+
+	  //adding the room to the scene 
+	  scene.add(room);
+	  //=====================================================================================
+
+	  //Method that makes a shiny ball using a cube camera. Code taken from Susie Carovillano and Francys Scott
+	  function createShinyBall(bmap, shinyBallColor, shinyBallSpecular, shinyBallShininess, shinyBallSize) {
+
+	    // create additional camera for reflections
+	    var sphereCamera = new THREE.CubeCamera(0.1, 1000, 512);
+	  
+	    // create the ball
+	    var shinyBallMat = new THREE.MeshPhongMaterial( { color: shinyBallColor,
+	                                  ambient: shinyBallColor,
+	                                  specular: shinyBallSpecular, 
+	                                  envMap: sphereCamera.renderTarget, //this makes the shinyBall reflective
+	                                  shininess: shinyBallShininess,
+	                                  bumpMap: bmap,
+	                                  bumpScale: 1,
+	                                  } );
+	    var sphereGeom =  new THREE.SphereGeometry(shinyBallSize, 32, 16);
+	    var shinyBall = new THREE.Mesh(sphereGeom, shinyBallMat);
+	    
+	    //can only return a single object so we put the two needed objects into an array
+	    var objectArray = [shinyBall, sphereCamera];
+	    return objectArray; 
+	  }
+
+	  //create the disco ball with the function above
+	  //also creating the bumpmap material for the disco ball 
+	  var bmap = new THREE.ImageUtils.loadTexture("squares.jpg", {}, function(){});
+	  var ballRadius = 10;
+	  var tempBall = createShinyBall(bmap, 0xFFFFFF, 0xFFFFFF, 5, ballRadius); 
+	  var discoBall = tempBall[0];
+	  var discoBallCam = tempBall[1];
+
+	  //adding the disco ball and disco ball camera to the scene
+	  discoBall.position.set(0,roomHeight/2-ballRadius,0);
+	  scene.add(discoBall);
+
+	  discoBallCam.position.set(0,roomHeight/2-ballRadius,0);
+	  scene.add(discoBallCam);
+
+	  //create reflectors to brighten the disco ball
+	  var reflectorGeom = new THREE.PlaneGeometry(8,6,4,4);
+	  var reflectorMat = new THREE.MeshBasicMaterial({color: 0xffffff, side:THREE.DoubleSide});
+	  var reflector = new THREE.Mesh(reflectorGeom,reflectorMat);
+	  scene.add(reflector);
+	  reflector.rotation.y = Math.PI/4;
+	  reflector.position.set(-ballRadius+3,roomHeight/2-3,-ballRadius+3); //back left
+
+	  var reflector2 = reflector.clone();
+	  reflector2.rotation.y = -Math.PI/4;
+	  reflector2.position.set(ballRadius-3,roomHeight/2-3,-ballRadius+3); //back right
+	  scene.add(reflector2); 
+
+	  var reflector3 = reflector.clone();
+	  reflector3.rotation.y = 3*Math.PI/4;
+	  reflector3.position.set(-ballRadius+3,roomHeight/2-3,ballRadius-3); //front left
+	  scene.add(reflector3);
+
+	  var reflector4 = reflector.clone();
+	  reflector4.rotation.y = -3*Math.PI/4;
+	  reflector4.position.set(ballRadius-3,roomHeight/2-3,ballRadius-3); //front right
+	  scene.add(reflector4);
+
+	  //=====================================================================================
+	  //create the video element, can be used for different videos
+	  function createVideo (source) {
+	    var video = document.createElement("video");
+	    video.src = source;
+	    video.loop = true;
+	    video.load(); //needs to be called after setting or changing source
+	    video.play();
+	    return video;
+	  }  
+
+	  //create movies to play on each of the walls 
+	  //the abba video is on two tvs
+	  var abbaVideo = createVideo("Abba - Dancing Queen.mp4");
+	  var abbaVideoImage = document.createElement("canvas");
+
+	  var abbaVideoImageContext = abbaVideoImage.getContext('2d');
+	  abbaVideoImageContext.fillStyle = 0xFFFFFF; //if there is no video present, this is the background color of the screen
+	  abbaVideoImageContext.fillRect = (0,0,480,360);
+
+	  var abbaVideoTexture = new THREE.Texture(abbaVideoImage);
+	  abbaVideoTexture.minFilter = THREE.LinearFilter;
+	  abbaVideoTexture.magFilter = THREE.LinearFilter;
+
+	  //add the first tv
+	  var abbaMovieMaterial = new THREE.MeshBasicMaterial({map: abbaVideoTexture,overdraw: true, side: THREE.FrontSide});
+	  var abbaMovieGeometry = new THREE.PlaneGeometry(36,27,4,4);
+	  var abbaMovieScreen = new THREE.Mesh(abbaMovieGeometry,abbaMovieMaterial);
+	  scene.add(abbaMovieScreen);
+	  abbaMovieScreen.position.set(-60,roomHeight/2-(27/2)-1,-35); //-55,-30
+	  abbaMovieScreen.rotation.y = Math.PI/4;
+	  
+	  //add the second tv
+	  var abbaMovieScreen2 = abbaMovieScreen.clone();
+	  scene.add(abbaMovieScreen2);
+	  abbaMovieScreen2.position.set(60,roomHeight/2-(27/2)-1,-35);
+	  abbaMovieScreen2.rotation.y = -Math.PI/4;
+
+	  //create the video for the walls
+	  var discoWallVideo = createVideo("discowalls.mp4");
+	  var discoWallImage = document.createElement("canvas");
+
+	  var discoWallImageContext = discoWallImage.getContext('2d');
+	  discoWallImageContext.fillStyle = 0xFFFFFF; //if there is no video present, this is the background color of the screen
+	  discoWallImageContext.fillRect = (0,0,128,72);
+
+	  var discoWallTexture = new THREE.Texture(discoWallImage);
+	  discoWallTexture.minFilter = THREE.LinearFilter;
+	  discoWallTexture.magFilter = THREE.LinearFilter;
+
+	  var discoWallMovieMaterial = new THREE.MeshBasicMaterial({map: discoWallTexture,overdraw: true, side: THREE.FrontSide});
+
+	  //add the left wall
+	  var discoLeftWallMovieGeometry = new THREE.PlaneGeometry(roomDepth,roomHeight,4,4);
+	  var discoLeftWallMovieScreen = new THREE.Mesh(discoLeftWallMovieGeometry,discoWallMovieMaterial);
+	  scene.add(discoLeftWallMovieScreen);
+	  discoLeftWallMovieScreen.position.set(-roomLength/2+1,0,0);
+	  discoLeftWallMovieScreen.rotation.y = Math.PI/2;
+
+	  //create the right wall by cloning the left wall
+	  var discoRightWallMovieScreen = discoLeftWallMovieScreen.clone();
+	  scene.add(discoRightWallMovieScreen);
+	  discoRightWallMovieScreen.position.set(roomLength/2-1,0,0);
+	  discoRightWallMovieScreen.rotation.y = -Math.PI/2;
+
+	  //create the ceiling with different dimensions
+	  var discoCeilingMovieGeometry = new THREE.PlaneGeometry(roomLength,roomDepth,4,4);
+	  var discoCeilingMovieScreen = new THREE.Mesh(discoCeilingMovieGeometry,discoWallMovieMaterial);
+	  scene.add(discoCeilingMovieScreen);
+	  discoCeilingMovieScreen.position.set(0,roomHeight/2-1,0);
+	  discoCeilingMovieScreen.rotation.x = Math.PI/2;
+
+	  //create the back wall with different dimensions
+	  var discoBackWallMovieGeometry = new THREE.PlaneGeometry(roomLength,roomHeight,4,4);
+	  var discoBackWallMovieScreen = new THREE.Mesh(discoBackWallMovieGeometry,discoWallMovieMaterial);
+	  scene.add(discoBackWallMovieScreen);
+	  discoBackWallMovieScreen.position.set(0,0,-roomDepth/2+1);
+	  //=====================================================================================
+	  // var dirLight,ambLight; //use global for the lights (and targets) 
+
+	  function makeLights() {
+	    //directional lights!! discos require a lot of electricity ;)
+	    var dirLight = new THREE.DirectionalLight(0xFFFFFF,.5);
+	    dirLight.position.set(0,roomHeight/2,0);
+	    scene.add(dirLight);
+
+	    var dirLight2 = dirLight.clone();
+	    dirLight2.position.set(0,-roomHeight/2,0);
+	    scene.add(dirLight2);
+
+	    var dirLight3 = dirLight.clone();
+	    dirLight3.position.set(roomLength/2,0,0);
+	    scene.add(dirLight3);
+
+	    var dirLight4 = dirLight.clone();
+	    dirLight4.position.set(-roomLength/2,0,0);
+	    scene.add(dirLight4);
+
+	    var dirLight5 = dirLight.clone();
+	    dirLight5.position.set(0,0,roomDepth/2);
+	    scene.add(dirLight5);
+
+	    var dirLight6 = dirLight.clone();
+	    dirLight6.position.set(0,0,-roomDepth/2);
+	    scene.add(dirLight6);
+
+	    //ambient light
+	    var ambLight = new THREE.AmbientLight(0x707070);
+	    scene.add(ambLight);
+	  }
+	  makeLights();
+	  //=====================================================================================
+
+	  function makeStrobe(color) {
+	  	//discos also need strobe lights! given the index of a color in an array of colors,
+	  	//will create a "strobe light" (which is just a transparent cylinder) of that color
+	  	var strobeGeom = new THREE.CylinderGeometry(7,0.5,Math.sqrt(roomHeight*roomHeight + roomLength*roomLength + roomDepth*roomDepth)-30,100,100); //
+	  	var strobeMat = new THREE.MeshPhongMaterial({color:color,ambient:color, transparent: true, opacity: 0.3, specular: 10});
+	  	var strobeMesh = new THREE.Mesh(strobeGeom,strobeMat);
+	  	return strobeMesh;
+	  }
+
+	  //add strobe lights at the four corners
+	  var rtFrStrobe = makeStrobe("rgb(0,191,255)");
+	  scene.add(rtFrStrobe);
+	  rtFrStrobe.rotation.z = -Math.PI/2.5;
+	  rtFrStrobe.rotation.y = Math.PI/5;
+
+	  var rtBkStrobe = makeStrobe("rgb(130,20,130)");
+	  scene.add(rtBkStrobe);
+	  rtBkStrobe.rotation.z = -Math.PI/2.5;
+	  rtBkStrobe.rotation.y = -Math.PI/5;
+
+	  var ltFrStrobe = makeStrobe("rgb(0,255,0)");
+	  scene.add(ltFrStrobe);
+	  ltFrStrobe.rotation.z = Math.PI/2.5;
+	  ltFrStrobe.rotation.y = -Math.PI/5;
+
+	  var ltBkStrobe = makeStrobe("rgb(255,105,180)");
+	  scene.add(ltBkStrobe);
+	  ltBkStrobe.rotation.z = Math.PI/2.5;
+	  ltBkStrobe.rotation.y = Math.PI/5;
+
+	  //=====================================================================================
+
+	  //set the state of the camera
+	  var state = TW.cameraSetup(renderer,scene,
+	                             {minx:-25,maxx:25,
+	                              miny:-30,maxy:30,
+	                              minz:-15,maxz:25
+	                             });
+
+	  discoBallCam.updateCubeMap(renderer,scene);
+
+	  //animates the videos
+	  function animateVideo() {
+	    requestAnimationFrame( animateVideo );
+	    render();   
+	    update();
+	  }
+
+	  //keyboard calls allow user to play, pause, rewind, and stop the video
+	  function update() {
+	    if ( keyboard.pressed("p") ) {//play video (if it is stopped or paused)
+	      abbaVideo.play();
+	      discoWallVideo.play();
+	    }
+	      
+	    if ( keyboard.pressed("q") ) { //pause video
+	      abbaVideo.pause();
+	      discoWallVideo.pause();
+	    }
+
+	    if ( keyboard.pressed("s") ) // stop video
+	    {
+	      abbaVideo.pause();
+	      abbaVideo.currentTime = 0;
+
+	      discoWallVideo.pause();
+	      discoWallVideo.currentTime = 0;
+	    }
+	    
+	    if ( keyboard.pressed("r") ) {// rewind video
+	      abbaVideo.currentTime = 0;
+	      discoWallVideo.currentTime = 0;
+	    }
+	  }
+
+	  //need a renderer!
+	  function render() { 
+	    if ( abbaVideo.readyState === abbaVideo.HAVE_ENOUGH_DATA ) 
+	    {
+	      abbaVideoImageContext.drawImage( abbaVideo, 0, 0 );
+	      if ( abbaVideoTexture ) 
+	        abbaVideoTexture.needsUpdate = true;
+	    }
+
+	    if ( discoWallVideo.readyState === discoWallVideo.HAVE_ENOUGH_DATA ) 
+	    {
+	      discoWallImageContext.drawImage( discoWallVideo, 0, 0 );
+	      if ( discoWallTexture ) 
+	        discoWallTexture.needsUpdate = true;
+	    }
+
+	    renderer.render( scene, state.cameraObject );
+	  }
+
+	  //finally, animate the scene so it plays upon loading
+	  animateVideo();
+
+	  //=====================================================================================
+
+	    time = 0;
+	    timeCount = 0;
+	    animationID = null;
+
+	  //for the disco ball rotation animation
+	  function updateDiscoBallState() {
+	    time++;
+	    timeCount++;
+	    if (timeCount == 5) {
+	      time = time % 360;
+	      scene.remove(discoBall);
+	      discoBall.rotation.y += Math.PI/8;
+	      discoBall.position.set(0,roomHeight/2-10,0);
+	      scene.add(discoBall);
+	      timeCount = 0;
+	      render();
+	    }
+	  }
+
+	  function animateDiscoBall() {
+	    updateDiscoBallState();
+	    update();
+	    animationID = requestAnimationFrame(animateDiscoBall);
+	  }
+
+	  function stopDiscoBall() {
+	    if (animationID != null) {
+	      cancelAnimationFrame(animationID);
+	    }
+	  }
+
+	  TW.setKeyboardCallback("g",animateDiscoBall,"animates the disco ball");
+	  TW.setKeyboardCallback("h",stopDiscoBall,"stops the disco ball");
+
+	//=====================================================================================
+	  roboTime = 0;
+	  roboCount = 0;
+	  roboAnimationID = null;
+
+	  //let's the robots dance in a circle!
+	  function updateRobot(robot, side){
+	  	roboTime += .005;
+
+	  	//has half of the robots rotate one direction
+	  	if (side%2 == 0) {
+	  	robot.rotation.y += Math.PI/10;
+	  	robot.position.x += Math.cos(roboTime); 
+	  	robot.position.z += Math.sin(roboTime);
+	  	
+	  	//and the other rotate in the other direction
+	 	} else {
+	  		robot.rotation.y -= Math.PI/10;
+	  		robot.position.x -= Math.cos(roboTime); 
+	  		robot.position.z -= Math.sin(roboTime);
+	  	}
+	  	render();
+	  }
+
+	  function animateRobot(){
+	  	for (var i = 0; i < robotArray.length; i++) {
+	  		updateRobot(robotArray[i], i);
+	  	}
+	  	render();
+	  	roboAnimationID = requestAnimationFrame(animateRobot);
+	  }
+
+	  function stopDanceCircle() {
+	    if (roboAnimationID != null) {
+	      cancelAnimationFrame(roboAnimationID);
+	    }
+	  }
+
+	  TW.setKeyboardCallback("1",animateRobot,"start robot dance");
+	  TW.setKeyboardCallback("0",stopDanceCircle,"stop robot dance");
+
+	//=====================================================================================
+		strobeTimeCount = 0;
+	  	strobeAnimationID = null;
+	  
+	  //strobes turn on and off to create more of a disco environment
+	  function updateStrobeState() {
+	  	strobeTimeCount += .25;
+	  	if (strobeTimeCount == 1) {
+	  		scene.remove(rtBkStrobe);
+	  		scene.remove(ltBkStrobe);
+	  		scene.add(rtFrStrobe);
+	  		scene.add(ltFrStrobe);
+	  		
+	  	} if (strobeTimeCount == 2) {
+	  	scene.remove(rtFrStrobe);
+	  	scene.remove(ltFrStrobe);
+	  	scene.add(rtBkStrobe);
+	  	scene.add(ltBkStrobe);
+	  	strobeTimeCount = 0;
+	  	}
+	  	render();
+	  }
+
+	  function animateStrobe() {
+	  	updateStrobeState();
+	  	update();
+	  	strobeAnimationID = requestAnimationFrame(animateStrobe);
+	  }
+	  animateStrobe();
+
+	//=====================================================================================
+
+	</script>
+
+	<h3>OUR SCENE:</h3>
+	<h5>hello everyone, this is our final version of our project. It currently contains a rotating disco ball, two TVs that display Abba's "Dancing Queen" music video (and play sound as well), walls on which disco lights are playing, and thirteen robots that dance. </h5> </br>
+
+	<h3>THE DISCO BALL AND THE DISCO LIGHTS AND STROBES:</h3>
+	<h5>The code for the disco ball was borrowed from our tutor, Susie Carovillano, who submitted it as her constribution to the CS307 library. We appreciate her help very much! We added our own animation code to the disco ball so that it rotates. Press 'g' to start the rotation and 'h' to stop the rotation. Additionally, you'll notice that pressing 'g' multiple times will speed up the ball's rotation speed. Press 'h' an equal number of times to slow down and subsequently stop the ball from rotating.</br>The disco lights are actually video files that have been displayed on planes and placed on the four walls, the left and right walls, the ceiling, and the back wall. The videos can be paused and rewinded. </br> The strobes are simply translucent cylinders that are angled from the bottom four corners. We animated them so that they would be removed and re-added every few seconds, kind of like how strobe lights turn on and off at discos.</h5> 
+	<img src="discoball.png" alt="discoball image"></br><img src="discowalls.png" alt="wall image"></br><img src ="strobe.png" alt="strobe image">
+
+	<h3>THE TVs AND THE AUDIO:</h3>
+	<h5>The TVs are on planes and they display Abba's "Dancing Queen" music video, which is a file we have uploaded into our alpha folder. The videos play the audio that you hear when you load the scene. We love Abba and their creative and dynamic tunes. We think that "Dancing Queen" fits the attitude of our disco scene QUITE well. </br> You can also pause and rewind the videos, using code we borrowed from a user (stemkoski) on github, which essentially creates a keyboard object or variable that is referenced when we call our update() function with every frame. Depending on which key the user presses, the TVs will either pause, rewind, or play. stemkoski's code is linked in our source code but can also be found <a href="https://stemkoski.github.io/Three.js/js/THREEx.KeyboardState.js">here</a>. The directions on how to pause, rewind, and play the TVs is located at the top of this page.  </h5>
+	<img src="abba.png" alt="abba video image"></br>
+
+	<h3>THE ROBOTS:</h3>
+	<h5>We got our inspiration for the robots from the clown from the second homework assignment. We created the robot's face with a mixture of textures and three dimensional geometries. We also added bolts and rods to the body and head to make the robots look more authentic. The robots have a golden body and face and rainbow flairs for a groovy touch. The flairs were constructed from lathe and spline geometries. The robots also have glittery black shoes which we hope emulate the shoes of disco dancers from the past. These shoes are made from a texture mapped material. They dance in a circular fashion. </h5>
+	<img src="robot.png" alt="robot image" align="middle"><img src="robotshoes.png" alt="shoe image" alight="middle"></br>
+
+	<h3>THE FLOOR:</h3>
+	<h5>The floor is a bump mapped textured surface. The bump mapping makes the floor look much more three-dimensional and realistic. We have also turned up the shininess of the floor texture to give it a nice metallic quality. We might change this in the future though. </br>Bump Mapping: Bump mapping the material makes the material look more realistic. The bump mapping contrasts the dark parts and bright parts of the by creating depth in the dark parts.</h5>
+	<img src="floor.png" alt="floor image"></br>
+
+	<h3>PROBLEMS WE ENCOUNTERED (AND ATTEMPTED TO RESOLVE):</h3>
+	<h5>The main problem we faced was allowing the robots to dance. Our initial idea was to have the arms move in the pattern of a wave. However, after numerous attempts to access and move the arm objects, we theorized that when the arms are added to robot object, the arms are no longer their own object and become part of the robot object. This prohibited us from moving the arms. We could have made a different function that added the arms outside of the createRobot function, but we did not have enough time to try and match up the arms with the robots. We instead have the robots dancing in a circle.</h5>
+	
+	</body>
+</html>
